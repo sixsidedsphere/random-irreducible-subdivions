@@ -25,3 +25,6 @@ Algorithm looks like this at the moment (not perfect by any means)
     -  "longest" takes the longest possible step (this is less stripy, but does tend to create very large gaps)
     -  "median" takes the middle option, optimising for a more evenly spaced final result.
  
+## Preview
+
+<img src="Screenshot 2026-01-08 at 16.59.45.png"/>
