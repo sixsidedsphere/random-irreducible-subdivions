@@ -1,0 +1,1870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Push-Heal Rectangulation Generator (Local, No Scan)</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: #1a1a1a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      color: #fff;
+      font-family: 'Courier New', monospace;
+      user-select: none;
+    }
+
+    #ui-layer {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      pointer-events: none;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: 95vh;
+    }
+
+    .box {
+      background: rgba(0, 0, 0, 0.9);
+      padding: 20px;
+      border-radius: 8px;
+      border: 1px solid #444;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      pointer-events: auto;
+      min-width: 280px;
+    }
+
+    #inspector-panel {
+      display: none;
+      border-color: #4ec9b0;
+    }
+
+    h1 { margin: 0 0 10px 0; font-size: 16px; color: #ff5555; text-transform: uppercase; letter-spacing: 1px; }
+    h2 { margin: 0 0 10px 0; font-size: 14px; color: #4ec9b0; text-transform: uppercase; letter-spacing: 1px; }
+
+    .control-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      gap: 10px;
+    }
+
+    label { font-size: 12px; color: #aaa; cursor: pointer; }
+
+    input[type="text"], input[type="number"], select {
+      background: #333;
+      border: 1px solid #555;
+      color: white;
+      padding: 5px 8px;
+      border-radius: 4px;
+      font-family: inherit;
+      text-align: center;
+    }
+
+    select { width: 100%; text-align: left; cursor: pointer; }
+    input[type="checkbox"] { cursor: pointer; accent-color: #ff5555; }
+    input[type="range"] { width: 100%; cursor: pointer; accent-color: #ff5555; }
+
+    input[type="text"] { width: 70px; }
+    input[type="number"] { width: 70px; }
+
+    .btn-group {
+      display: flex;
+      gap: 5px;
+      width: 100%;
+      margin-top: 15px;
+    }
+
+    button {
+      background: #333;
+      color: #ddd;
+      border: 1px solid #555;
+      padding: 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 12px;
+      flex-grow: 1;
+      transition: all 0.1s;
+    }
+    button:hover { background: #444; border-color: #888; color: white; }
+    button:active { background: #555; transform: translateY(1px); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .status {
+      font-size: 12px;
+      color: #888;
+      margin-top: 10px;
+      border-top: 1px solid #333;
+      padding-top: 10px;
+    }
+
+    .data-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      margin-bottom: 4px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid #333;
+    }
+    .data-label { color: #888; }
+    .data-val { color: #fff; font-weight: bold; }
+
+    .action-area {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #444;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .action-btn { background: #2a4; border-color: #4c6; color: #000; font-weight: bold; }
+    .action-btn:hover { background: #4c6; }
+    .revert-btn { background: #a44; border-color: #c66; color: #fff; }
+    .revert-btn:hover { background: #c66; }
+
+    canvas {
+      box-shadow: 0 0 50px rgba(0,0,0,0.5);
+      cursor: crosshair;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="ui-layer">
+    <div class="box">
+      <h1>Push-Heal Generator</h1>
+
+      <div class="control-row">
+        <div style="display:flex; align-items:center; gap:5px;">
+          <label>Seed:</label>
+          <input type="text" id="seedInput" value="12345" onchange="initGenerator()">
+        </div>
+        <button onclick="randomizeSeed()" style="flex-grow:0; width:30px;" title="Random Seed (R)">🎲</button>
+      </div>
+
+      <div class="control-row">
+        <div style="display:flex; align-items:center; gap:5px;">
+          <label>Grid Size:</label>
+          <input type="number" id="sizeInput" value="60" min="6" max="100000" onchange="initGenerator()">
+        </div>
+      </div>
+
+      <div class="control-row" style="margin-top: 10px;">
+        <div style="width:100%">
+          <label style="display:block; margin-bottom:5px;">Hop Strategy (Distance):</label>
+          <select id="hopStrategyInput" onchange="initGenerator()">
+            <option value="random">Random</option>
+            <option value="smallest">Smallest Hop</option>
+            <option value="median">Median Hop</option>
+            <option value="biggest">Biggest Hop</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="control-row" style="justify-content: flex-start; margin-top: 10px;">
+        <input type="checkbox" id="prioritizePotentialInput" onchange="initGenerator()">
+        <label for="prioritizePotentialInput" title="Prioritize endpoints with the most physical space to push">Prioritize Max Potential</label>
+      </div>
+
+      <div style="margin-top:15px; margin-bottom: 5px;">
+        <input type="range" id="timelineSlider" min="0" max="0" value="0" oninput="scrub(this.value)">
+      </div>
+
+      <div class="btn-group">
+        <button onclick="step(-1)" id="btnPrev">← Prev</button>
+        <button onclick="step(1)" id="btnNext">Next →</button>
+      </div>
+
+      <div class="status">
+        Step: <span id="stepDisplay">0 / 0</span><br>
+        <span id="instructionDisplay" style="color:#4ec9b0; display:block; min-height:1.2em; font-size:11px;">...</span>
+      </div>
+    </div>
+
+    <div class="box" id="inspector-panel">
+      <h2>Endpoint Inspector</h2>
+      <div id="inspector-content">
+        <div style="color:#aaa; font-style:italic;">Select an endpoint...</div>
+      </div>
+      <div id="inspector-actions" class="action-area" style="display:none;">
+        <button class="action-btn" onclick="manualPush()">Trial Push In</button>
+        <button class="revert-btn" onclick="step(-1)">Undo Last Push</button>
+      </div>
+    </div>
+  </div>
+
+  <canvas id="mainCanvas"></canvas>
+
+<script>
+/* =========================
+   PRNG
+========================= */
+function mulberry32(a) {
+  return function() {
+    var t = a += 0x6D2B79F5;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  }
+}
+function xmur3(str) {
+  let h = 1779033703 ^ str.length;
+  for (let i = 0; i < str.length; i++) {
+    h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+    h = (h << 13) | (h >>> 19);
+  }
+  return function() {
+    h = Math.imul(h ^ (h >>> 16), 2246822507);
+    h = Math.imul(h ^ (h >>> 13), 3266489909);
+    return (h ^= (h >>> 16)) >>> 0;
+  }
+}
+
+/* =========================
+   Config
+========================= */
+let GRID_N = 60;
+const PADDING = 60;
+const MAX_ATTEMPTS = 100000;
+
+/* =========================
+   Data model
+========================= */
+class Vertex {
+  constructor(id, x, y) {
+    this.id = id;
+    this.x = x;
+    this.y = y;
+    this.active = true;
+    this.up = null;
+    this.down = null;
+    this.left = null;
+    this.right = null;
+  }
+  degree() {
+    let d = 0;
+    if (this.up !== null) d++;
+    if (this.down !== null) d++;
+    if (this.left !== null) d++;
+    if (this.right !== null) d++;
+    return d;
+  }
+}
+class Edge {
+  constructor(id, a, b, ori) {
+    this.id = id;
+    this.a = a;
+    this.b = b;
+    this.ori = ori; // 'h' or 'v'
+    this.active = true;
+    this.topFace = -1;
+    this.bottomFace = -1;
+    this.leftFace = -1;
+    this.rightFace = -1;
+  }
+}
+class Face {
+  constructor(id) {
+    this.id = id;
+    this.active = true;
+    this.leftX = 0;
+    this.rightX = 0;
+    this.topY = 0;
+    this.bottomY = 0;
+    this.top = [];
+    this.bottom = [];
+    this.left = [];
+    this.right = [];
+  }
+}
+
+function pairKey(a, b) {
+  return (a < b) ? (a + "," + b) : (b + "," + a);
+}
+function lowerBound(arr, value, coordFn) {
+  let lo = 0, hi = arr.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (coordFn(arr[mid]) < value) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
+}
+
+class Graph {
+  constructor(N) {
+    this.N = N;
+    this.vertices = [];
+    this.edges = [];
+    this.faces = [];
+    this.coordToVid = new Map();
+    this.pairToEdge = new Map();
+  }
+
+  _vKey(x, y) { return x + "," + y; }
+  v(id) { return this.vertices[id]; }
+  e(id) { return this.edges[id]; }
+  f(id) { return this.faces[id]; }
+
+  hasVertexAt(x, y) {
+    const id = this.coordToVid.get(this._vKey(x, y));
+    return id !== undefined && this.v(id).active;
+  }
+  vertexIdAt(x, y) {
+    const id = this.coordToVid.get(this._vKey(x, y));
+    if (id === undefined) return null;
+    if (!this.v(id).active) return null;
+    return id;
+  }
+
+  getOrCreateVertex(x, y) {
+    const k = this._vKey(x, y);
+    const existing = this.coordToVid.get(k);
+    if (existing !== undefined) {
+      const vv = this.v(existing);
+      if (!vv.active) throw new Error("Inactive vertex in coord map");
+      return existing;
+    }
+    const id = this.vertices.length;
+    const vv = new Vertex(id, x, y);
+    this.vertices.push(vv);
+    this.coordToVid.set(k, id);
+    return id;
+  }
+
+  _setNeighbor(a, dir, b) {
+    const va = this.v(a);
+    const cur = va[dir];
+    if (cur !== null && cur !== b) throw new Error("Neighbor conflict");
+    va[dir] = b;
+  }
+  _clearNeighborIf(a, dir, b) {
+    const va = this.v(a);
+    if (va[dir] === b) va[dir] = null;
+  }
+
+  addEdge(v1, v2, ori, facesInfo) {
+    const aV = this.v(v1);
+    const bV = this.v(v2);
+
+    let a = v1, b = v2;
+    if (ori === 'h') {
+      if (aV.y !== bV.y) throw new Error("Horizontal edge requires same y");
+      if (aV.x === bV.x) throw new Error("Zero-length edge");
+      if (aV.x > bV.x) { a = v2; b = v1; }
+    } else {
+      if (aV.x !== bV.x) throw new Error("Vertical edge requires same x");
+      if (aV.y === bV.y) throw new Error("Zero-length edge");
+      if (aV.y > bV.y) { a = v2; b = v1; }
+    }
+
+    const key = pairKey(a, b);
+    if (this.pairToEdge.has(key)) throw new Error("Edge already exists between " + key);
+
+    const id = this.edges.length;
+    const ee = new Edge(id, a, b, ori);
+
+    if (ori === 'h') {
+      ee.topFace = facesInfo.topFace ?? -1;
+      ee.bottomFace = facesInfo.bottomFace ?? -1;
+      this._setNeighbor(a, "right", b);
+      this._setNeighbor(b, "left", a);
+    } else {
+      ee.leftFace = facesInfo.leftFace ?? -1;
+      ee.rightFace = facesInfo.rightFace ?? -1;
+      this._setNeighbor(a, "down", b);
+      this._setNeighbor(b, "up", a);
+    }
+
+    this.edges.push(ee);
+    this.pairToEdge.set(key, id);
+    return id;
+  }
+
+  getEdgeBetween(v1, v2) {
+    const id = this.pairToEdge.get(pairKey(v1, v2));
+    return (id === undefined) ? null : id;
+  }
+
+  deactivateEdge(edgeId) {
+    const ee = this.e(edgeId);
+    if (!ee.active) return;
+    ee.active = false;
+
+    this.pairToEdge.delete(pairKey(ee.a, ee.b));
+
+    if (ee.ori === 'h') {
+      this._clearNeighborIf(ee.a, "right", ee.b);
+      this._clearNeighborIf(ee.b, "left", ee.a);
+    } else {
+      this._clearNeighborIf(ee.a, "down", ee.b);
+      this._clearNeighborIf(ee.b, "up", ee.a);
+    }
+  }
+
+  replaceFaceOnEdge(edgeId, oldFaceId, newFaceId) {
+    const ee = this.e(edgeId);
+    if (!ee.active) return;
+    if (ee.ori === 'h') {
+      if (ee.topFace === oldFaceId) ee.topFace = newFaceId;
+      if (ee.bottomFace === oldFaceId) ee.bottomFace = newFaceId;
+    } else {
+      if (ee.leftFace === oldFaceId) ee.leftFace = newFaceId;
+      if (ee.rightFace === oldFaceId) ee.rightFace = newFaceId;
+    }
+  }
+
+  _insertVertexIntoFaceChain(faceId, side, vId) {
+    if (faceId === -1) return;
+    const ff = this.f(faceId);
+    if (!ff || !ff.active) return;
+
+    const vv = this.v(vId);
+    const chain = ff[side];
+    const coordFn = (side === 'top' || side === 'bottom')
+      ? (vid) => this.v(vid).x
+      : (vid) => this.v(vid).y;
+    const value = (side === 'top' || side === 'bottom') ? vv.x : vv.y;
+
+    const idx = lowerBound(chain, value, coordFn);
+    if (idx < chain.length && coordFn(chain[idx]) === value) return;
+    chain.splice(idx, 0, vId);
+  }
+
+  splitEdgeAt(edgeId, newVertexId) {
+    const ee = this.e(edgeId);
+    if (!ee.active) throw new Error("Cannot split inactive edge");
+    const ori = ee.ori;
+    const a = ee.a, b = ee.b;
+
+    const oldTop = ee.topFace, oldBottom = ee.bottomFace, oldLeft = ee.leftFace, oldRight = ee.rightFace;
+    this.deactivateEdge(edgeId);
+
+    if (ori === 'h') {
+      this.addEdge(a, newVertexId, 'h', { topFace: oldTop, bottomFace: oldBottom });
+      this.addEdge(newVertexId, b, 'h', { topFace: oldTop, bottomFace: oldBottom });
+      if (oldBottom !== -1) this._insertVertexIntoFaceChain(oldBottom, 'top', newVertexId);
+      if (oldTop !== -1) this._insertVertexIntoFaceChain(oldTop, 'bottom', newVertexId);
+    } else {
+      this.addEdge(a, newVertexId, 'v', { leftFace: oldLeft, rightFace: oldRight });
+      this.addEdge(newVertexId, b, 'v', { leftFace: oldLeft, rightFace: oldRight });
+      if (oldLeft !== -1) this._insertVertexIntoFaceChain(oldLeft, 'right', newVertexId);
+      if (oldRight !== -1) this._insertVertexIntoFaceChain(oldRight, 'left', newVertexId);
+    }
+  }
+
+  _findVertexInChainByCoord(chain, value, coordFn) {
+    const idx = lowerBound(chain, value, coordFn);
+    if (idx < chain.length && coordFn(chain[idx]) === value) return chain[idx];
+    return null;
+  }
+
+  getOrCreateVertexOnFaceSide(faceId, side, value) {
+    const ff = this.f(faceId);
+    if (!ff.active) throw new Error("Face inactive");
+
+    const coordFn = (side === 'top' || side === 'bottom')
+      ? (vid) => this.v(vid).x
+      : (vid) => this.v(vid).y;
+
+    const chain = ff[side];
+    const existingVid = this._findVertexInChainByCoord(chain, value, coordFn);
+    if (existingVid !== null) return existingVid;
+
+    let x, y;
+    if (side === 'top') { x = value; y = ff.topY; }
+    else if (side === 'bottom') { x = value; y = ff.bottomY; }
+    else if (side === 'left') { x = ff.leftX; y = value; }
+    else { x = ff.rightX; y = value; }
+
+    const vNew = this.getOrCreateVertex(x, y);
+
+    const idx = lowerBound(chain, value, coordFn);
+    if (idx === 0 || idx === chain.length) throw new Error("Side value not within chain span");
+
+    const vA = chain[idx - 1];
+    const vB = chain[idx];
+    const edgeId = this.getEdgeBetween(vA, vB);
+    if (edgeId === null) throw new Error("Missing boundary edge between chain vertices");
+
+    this.splitEdgeAt(edgeId, vNew);
+    return vNew;
+  }
+
+  _reassignEdgesOnChain(oldFaceId, newFaceId, chain) {
+    for (let i = 0; i + 1 < chain.length; i++) {
+      const a = chain[i], b = chain[i + 1];
+      const edgeId = this.getEdgeBetween(a, b);
+      if (edgeId === null) throw new Error("Missing edge on chain");
+      this.replaceFaceOnEdge(edgeId, oldFaceId, newFaceId);
+    }
+  }
+
+  _reassignEdgesOnFaceBoundaryChains(oldFaceId, newFaceId) {
+    const nf = this.f(newFaceId);
+    this._reassignEdgesOnChain(oldFaceId, newFaceId, nf.top);
+    this._reassignEdgesOnChain(oldFaceId, newFaceId, nf.bottom);
+    this._reassignEdgesOnChain(oldFaceId, newFaceId, nf.left);
+    this._reassignEdgesOnChain(oldFaceId, newFaceId, nf.right);
+  }
+
+  splitFace(faceId, ori, coord) {
+    const ff = this.f(faceId);
+    if (!ff.active) throw new Error("Face inactive");
+
+    if (ori === 'v') {
+      const xSplit = coord;
+      if (!(xSplit > ff.leftX && xSplit < ff.rightX)) throw new Error("Invalid vertical split coord");
+
+      const vTop = this.getOrCreateVertexOnFaceSide(faceId, 'top', xSplit);
+      const vBottom = this.getOrCreateVertexOnFaceSide(faceId, 'bottom', xSplit);
+
+      const oldTop = ff.top.slice();
+      const oldBottom = ff.bottom.slice();
+      const oldLeft = ff.left.slice();
+      const oldRight = ff.right.slice();
+
+      const topCoordFn = (vid) => this.v(vid).x;
+      const botCoordFn = (vid) => this.v(vid).x;
+
+      const idxTop = lowerBound(oldTop, xSplit, topCoordFn);
+      const idxBot = lowerBound(oldBottom, xSplit, botCoordFn);
+
+      const leftFaceId = this.faces.length;
+      const rightFaceId = this.faces.length + 1;
+
+      const fL = new Face(leftFaceId);
+      const fR = new Face(rightFaceId);
+
+      fL.leftX = ff.leftX;   fL.rightX = xSplit;     fL.topY = ff.topY;     fL.bottomY = ff.bottomY;
+      fR.leftX = xSplit;     fR.rightX = ff.rightX;  fR.topY = ff.topY;     fR.bottomY = ff.bottomY;
+
+      fL.top = oldTop.slice(0, idxTop + 1);
+      fR.top = oldTop.slice(idxTop);
+
+      fL.bottom = oldBottom.slice(0, idxBot + 1);
+      fR.bottom = oldBottom.slice(idxBot);
+
+      fL.left = oldLeft.slice();
+      fR.right = oldRight.slice();
+
+      fL.right = [vTop, vBottom];
+      fR.left = [vTop, vBottom];
+
+      this.faces.push(fL, fR);
+      const cutEdgeId = this.addEdge(vTop, vBottom, 'v', { leftFace: leftFaceId, rightFace: rightFaceId });
+
+      this._reassignEdgesOnFaceBoundaryChains(faceId, leftFaceId);
+      this._reassignEdgesOnFaceBoundaryChains(faceId, rightFaceId);
+      ff.active = false;
+
+      return { left: leftFaceId, right: rightFaceId, cutEdgeId };
+    } else {
+      const ySplit = coord;
+      if (!(ySplit > ff.topY && ySplit < ff.bottomY)) throw new Error("Invalid horizontal split coord");
+
+      const vLeft = this.getOrCreateVertexOnFaceSide(faceId, 'left', ySplit);
+      const vRight = this.getOrCreateVertexOnFaceSide(faceId, 'right', ySplit);
+
+      const oldTop = ff.top.slice();
+      const oldBottom = ff.bottom.slice();
+      const oldLeft = ff.left.slice();
+      const oldRight = ff.right.slice();
+
+      const leftCoordFn = (vid) => this.v(vid).y;
+      const rightCoordFn = (vid) => this.v(vid).y;
+
+      const idxLeft = lowerBound(oldLeft, ySplit, leftCoordFn);
+      const idxRight = lowerBound(oldRight, ySplit, rightCoordFn);
+
+      const topFaceId = this.faces.length;
+      const bottomFaceId = this.faces.length + 1;
+
+      const fT = new Face(topFaceId);
+      const fB = new Face(bottomFaceId);
+
+      fT.leftX = ff.leftX;    fT.rightX = ff.rightX;  fT.topY = ff.topY;     fT.bottomY = ySplit;
+      fB.leftX = ff.leftX;    fB.rightX = ff.rightX;  fB.topY = ySplit;      fB.bottomY = ff.bottomY;
+
+      fT.left = oldLeft.slice(0, idxLeft + 1);
+      fB.left = oldLeft.slice(idxLeft);
+
+      fT.right = oldRight.slice(0, idxRight + 1);
+      fB.right = oldRight.slice(idxRight);
+
+      fT.top = oldTop.slice();
+      fB.bottom = oldBottom.slice();
+
+      fT.bottom = [vLeft, vRight];
+      fB.top = [vLeft, vRight];
+
+      this.faces.push(fT, fB);
+      const cutEdgeId = this.addEdge(vLeft, vRight, 'h', { topFace: topFaceId, bottomFace: bottomFaceId });
+
+      this._reassignEdgesOnFaceBoundaryChains(faceId, topFaceId);
+      this._reassignEdgesOnFaceBoundaryChains(faceId, bottomFaceId);
+      ff.active = false;
+
+      return { top: topFaceId, bottom: bottomFaceId, cutEdgeId };
+    }
+  }
+
+  mergeFacesVertical(leftFaceId, rightFaceId) {
+    const L = this.f(leftFaceId);
+    const R = this.f(rightFaceId);
+    if (!L || !R || !L.active || !R.active) throw new Error("Cannot merge inactive faces");
+
+    if (L.rightX !== R.leftX) throw new Error("Vertical merge requires shared boundary");
+    if (L.topY !== R.topY || L.bottomY !== R.bottomY) throw new Error("Vertical merge requires same vertical span");
+
+    const sharedA = L.right;
+    const sharedB = R.left;
+    if (sharedA.length !== sharedB.length) throw new Error("Shared boundary chain mismatch");
+    for (let i = 0; i < sharedA.length; i++) if (sharedA[i] !== sharedB[i]) throw new Error("Shared boundary vertex mismatch");
+
+    for (let i = 0; i + 1 < sharedA.length; i++) {
+      const a = sharedA[i], b = sharedA[i + 1];
+      const eid = this.getEdgeBetween(a, b);
+      if (eid === null) throw new Error("Missing shared edge");
+      this.deactivateEdge(eid);
+    }
+
+    const newId = this.faces.length;
+    const F = new Face(newId);
+    F.leftX = L.leftX;
+    F.rightX = R.rightX;
+    F.topY = L.topY;
+    F.bottomY = L.bottomY;
+
+    F.left = L.left.slice();
+    F.right = R.right.slice();
+
+    F.top = L.top.slice();
+    for (let i = 1; i < R.top.length; i++) F.top.push(R.top[i]);
+
+    F.bottom = L.bottom.slice();
+    for (let i = 1; i < R.bottom.length; i++) F.bottom.push(R.bottom[i]);
+
+    this.faces.push(F);
+
+    const sides = ['top','bottom','left','right'];
+    for (const side of sides) {
+      const chain = F[side];
+      for (let i = 0; i + 1 < chain.length; i++) {
+        const a = chain[i], b = chain[i + 1];
+        const eid = this.getEdgeBetween(a, b);
+        if (eid === null) throw new Error("Missing boundary edge on merged face");
+        this.replaceFaceOnEdge(eid, leftFaceId, newId);
+        this.replaceFaceOnEdge(eid, rightFaceId, newId);
+      }
+    }
+
+    L.active = false;
+    R.active = false;
+    return newId;
+  }
+
+  mergeFacesHorizontal(topFaceId, bottomFaceId) {
+    const T = this.f(topFaceId);
+    const B = this.f(bottomFaceId);
+    if (!T || !B || !T.active || !B.active) throw new Error("Cannot merge inactive faces");
+
+    if (T.bottomY !== B.topY) throw new Error("Horizontal merge requires shared boundary");
+    if (T.leftX !== B.leftX || T.rightX !== B.rightX) throw new Error("Horizontal merge requires same horizontal span");
+
+    const sharedA = T.bottom;
+    const sharedB = B.top;
+    if (sharedA.length !== sharedB.length) throw new Error("Shared boundary chain mismatch");
+    for (let i = 0; i < sharedA.length; i++) if (sharedA[i] !== sharedB[i]) throw new Error("Shared boundary vertex mismatch");
+
+    for (let i = 0; i + 1 < sharedA.length; i++) {
+      const a = sharedA[i], b = sharedA[i + 1];
+      const eid = this.getEdgeBetween(a, b);
+      if (eid === null) throw new Error("Missing shared edge");
+      this.deactivateEdge(eid);
+    }
+
+    const newId = this.faces.length;
+    const F = new Face(newId);
+    F.leftX = T.leftX;
+    F.rightX = T.rightX;
+    F.topY = T.topY;
+    F.bottomY = B.bottomY;
+
+    F.top = T.top.slice();
+    F.bottom = B.bottom.slice();
+
+    F.left = T.left.slice();
+    for (let i = 1; i < B.left.length; i++) F.left.push(B.left[i]);
+
+    F.right = T.right.slice();
+    for (let i = 1; i < B.right.length; i++) F.right.push(B.right[i]);
+
+    this.faces.push(F);
+
+    const sides = ['top','bottom','left','right'];
+    for (const side of sides) {
+      const chain = F[side];
+      for (let i = 0; i + 1 < chain.length; i++) {
+        const a = chain[i], b = chain[i + 1];
+        const eid = this.getEdgeBetween(a, b);
+        if (eid === null) throw new Error("Missing boundary edge on merged face");
+        this.replaceFaceOnEdge(eid, topFaceId, newId);
+        this.replaceFaceOnEdge(eid, bottomFaceId, newId);
+      }
+    }
+
+    T.active = false;
+    B.active = false;
+    return newId;
+  }
+
+  removeVertexFromFaceChains(faceId, vId) {
+    if (faceId === -1) return;
+    const ff = this.f(faceId);
+    if (!ff || !ff.active) return;
+    const sides = ['top','bottom','left','right'];
+    for (const side of sides) {
+      const chain = ff[side];
+      for (let i = chain.length - 2; i >= 1; i--) {
+        if (chain[i] === vId) chain.splice(i, 1);
+      }
+    }
+  }
+
+  simplifyVertexIfCollinear(vId) {
+    const v = this.v(vId);
+    if (!v.active) return false;
+    const up = v.up, down = v.down, left = v.left, right = v.right;
+    if (v.degree() !== 2) return false;
+
+    if (left !== null && right !== null && up === null && down === null) {
+      const e1 = this.getEdgeBetween(left, vId);
+      const e2 = this.getEdgeBetween(vId, right);
+      if (e1 === null || e2 === null) return false;
+      const E1 = this.e(e1), E2 = this.e(e2);
+      if (!E1.active || !E2.active) return false;
+      if (E1.ori !== 'h' || E2.ori !== 'h') return false;
+      if (E1.topFace !== E2.topFace || E1.bottomFace !== E2.bottomFace) return false;
+
+      const topF = E1.topFace;
+      const botF = E1.bottomFace;
+
+      this.deactivateEdge(e1);
+      this.deactivateEdge(e2);
+      this.addEdge(left, right, 'h', { topFace: topF, bottomFace: botF });
+
+      this.removeVertexFromFaceChains(topF, vId);
+      this.removeVertexFromFaceChains(botF, vId);
+
+      v.active = false;
+      this.coordToVid.delete(this._vKey(v.x, v.y));
+      v.left = v.right = v.up = v.down = null;
+      return true;
+    }
+
+    if (up !== null && down !== null && left === null && right === null) {
+      const e1 = this.getEdgeBetween(up, vId);
+      const e2 = this.getEdgeBetween(vId, down);
+      if (e1 === null || e2 === null) return false;
+      const E1 = this.e(e1), E2 = this.e(e2);
+      if (!E1.active || !E2.active) return false;
+      if (E1.ori !== 'v' || E2.ori !== 'v') return false;
+      if (E1.leftFace !== E2.leftFace || E1.rightFace !== E2.rightFace) return false;
+
+      const leftF = E1.leftFace;
+      const rightF = E1.rightFace;
+
+      this.deactivateEdge(e1);
+      this.deactivateEdge(e2);
+      this.addEdge(up, down, 'v', { leftFace: leftF, rightFace: rightF });
+
+      this.removeVertexFromFaceChains(leftF, vId);
+      this.removeVertexFromFaceChains(rightF, vId);
+
+      v.active = false;
+      this.coordToVid.delete(this._vKey(v.x, v.y));
+      v.left = v.right = v.up = v.down = null;
+      return true;
+    }
+
+    return false;
+  }
+
+  simplifyQueue(vIds) {
+    for (const id of vIds) {
+      if (id === null || id === undefined) continue;
+      const v = this.v(id);
+      if (!v || !v.active) continue;
+      this.simplifyVertexIfCollinear(id);
+    }
+  }
+
+  isBoundaryEdge(edgeId) {
+    const e = this.e(edgeId);
+    if (!e.active) return true;
+    if (e.ori === 'v') return (e.leftFace === -1 || e.rightFace === -1);
+    return (e.topFace === -1 || e.bottomFace === -1);
+  }
+
+  edgeLength(edgeId) {
+    const e = this.e(edgeId);
+    const a = this.v(e.a);
+    const b = this.v(e.b);
+    return (e.ori === 'v') ? Math.abs(b.y - a.y) : Math.abs(b.x - a.x);
+  }
+
+  edgeCoords(edgeId) {
+    const e = this.e(edgeId);
+    const a = this.v(e.a);
+    const b = this.v(e.b);
+    return { x1: a.x, y1: a.y, x2: b.x, y2: b.y, orientation: e.ori };
+  }
+
+  initBoundary() {
+    const f0 = new Face(0);
+    f0.leftX = 0; f0.rightX = this.N; f0.topY = 0; f0.bottomY = this.N;
+
+    const vTL = this.getOrCreateVertex(0, 0);
+    const vTR = this.getOrCreateVertex(this.N, 0);
+    const vBL = this.getOrCreateVertex(0, this.N);
+    const vBR = this.getOrCreateVertex(this.N, this.N);
+
+    f0.top = [vTL, vTR];
+    f0.bottom = [vBL, vBR];
+    f0.left = [vTL, vBL];
+    f0.right = [vTR, vBR];
+    this.faces.push(f0);
+
+    this.addEdge(vTL, vTR, 'h', { topFace: -1, bottomFace: 0 });
+    this.addEdge(vBL, vBR, 'h', { topFace: 0, bottomFace: -1 });
+    this.addEdge(vTL, vBL, 'v', { leftFace: -1, rightFace: 0 });
+    this.addEdge(vTR, vBR, 'v', { leftFace: 0, rightFace: -1 });
+  }
+
+  applyPush(edgeId, end, newVal, bypassValidity = false) {
+    const beforeEdges = this.edges.length;
+
+    const E = this.e(edgeId);
+    if (!E.active) throw new Error("Push on inactive edge");
+    if (this.isBoundaryEdge(edgeId)) throw new Error("Refuse to push boundary edge");
+    if (!Number.isInteger(newVal)) throw new Error("newVal must be integer");
+
+    if (E.ori === 'v') {
+      const a = this.v(E.a), b = this.v(E.b);
+      const x0 = a.x;
+      const yTop = Math.min(a.y, b.y);
+      const yBot = Math.max(a.y, b.y);
+      const yNew = newVal;
+
+      if (!(yNew > yTop && yNew < yBot)) throw new Error("newVal out of edge interior");
+
+      const fLid = E.leftFace;
+      const fRid = E.rightFace;
+      if (fLid === -1 || fRid === -1) throw new Error("Vertical edge missing adjacent faces");
+
+      const fL = this.f(fLid);
+      const fR = this.f(fRid);
+      if (!fL.active || !fR.active) throw new Error("Adjacent face inactive");
+
+      if (end === 'start') {
+        if (fL.topY !== fR.topY) throw new Error("Push invalid: adjacent faces not aligned at top");
+      } else {
+        if (fL.bottomY !== fR.bottomY) throw new Error("Push invalid: adjacent faces not aligned at bottom");
+      }
+
+      const xL = fL.leftX;
+      const xR = fR.rightX;
+
+      if (!bypassValidity) {
+        if (this.hasVertexAt(xL, yNew)) throw new Error("Invalid: healed endpoint lands on existing vertex (left)");
+        if (this.hasVertexAt(xR, yNew)) throw new Error("Invalid: healed endpoint lands on existing vertex (right)");
+      }
+
+      const splitL = this.splitFace(fLid, 'h', yNew);
+      const splitR = this.splitFace(fRid, 'h', yNew);
+
+      const mergeLeft = (end === 'start') ? splitL.top : splitL.bottom;
+      const mergeRight = (end === 'start') ? splitR.top : splitR.bottom;
+
+      const mergedId = this.mergeFacesVertical(mergeLeft, mergeRight);
+
+      const yOld = (end === 'start') ? yTop : yBot;
+      const vOld = this.vertexIdAt(x0, yOld);
+      if (vOld !== null) this.simplifyQueue([vOld]);
+
+      const createdEdgeIds = [];
+      for (let i = beforeEdges; i < this.edges.length; i++) {
+        if (this.edges[i].active) createdEdgeIds.push(i);
+      }
+      return { mergedFaceId: mergedId, createdEdgeIds };
+    } else {
+      const a = this.v(E.a), b = this.v(E.b);
+      const y0 = a.y;
+      const xLeft = Math.min(a.x, b.x);
+      const xRight = Math.max(a.x, b.x);
+      const xNew = newVal;
+
+      if (!(xNew > xLeft && xNew < xRight)) throw new Error("newVal out of edge interior");
+
+      const fTid = E.topFace;
+      const fBid = E.bottomFace;
+      if (fTid === -1 || fBid === -1) throw new Error("Horizontal edge missing adjacent faces");
+
+      const fT = this.f(fTid);
+      const fB = this.f(fBid);
+      if (!fT.active || !fB.active) throw new Error("Adjacent face inactive");
+
+      if (end === 'start') {
+        if (fT.leftX !== fB.leftX) throw new Error("Push invalid: adjacent faces not aligned at left");
+      } else {
+        if (fT.rightX !== fB.rightX) throw new Error("Push invalid: adjacent faces not aligned at right");
+      }
+
+      const yT = fT.topY;
+      const yB = fB.bottomY;
+
+      if (!bypassValidity) {
+        if (this.hasVertexAt(xNew, yT)) throw new Error("Invalid: healed endpoint lands on existing vertex (top)");
+        if (this.hasVertexAt(xNew, yB)) throw new Error("Invalid: healed endpoint lands on existing vertex (bottom)");
+      }
+
+      const splitT = this.splitFace(fTid, 'v', xNew);
+      const splitB = this.splitFace(fBid, 'v', xNew);
+
+      const mergeTop = (end === 'start') ? splitT.left : splitT.right;
+      const mergeBot = (end === 'start') ? splitB.left : splitB.right;
+
+      const mergedId = this.mergeFacesHorizontal(mergeTop, mergeBot);
+
+      const xOld = (end === 'start') ? xLeft : xRight;
+      const vOld = this.vertexIdAt(xOld, y0);
+      if (vOld !== null) this.simplifyQueue([vOld]);
+
+      const createdEdgeIds = [];
+      for (let i = beforeEdges; i < this.edges.length; i++) {
+        if (this.edges[i].active) createdEdgeIds.push(i);
+      }
+      return { mergedFaceId: mergedId, createdEdgeIds };
+    }
+  }
+}
+
+/* =========================
+   Candidate utilities
+========================= */
+class MaxHeap {
+  constructor(cmp) { this.a = []; this.cmp = cmp; }
+  size() { return this.a.length; }
+  push(x) {
+    const a = this.a;
+    a.push(x);
+    let i = a.length - 1;
+    while (i > 0) {
+      const p = (i - 1) >> 1;
+      if (this.cmp(a[i], a[p]) <= 0) break;
+      [a[i], a[p]] = [a[p], a[i]];
+      i = p;
+    }
+  }
+  pop() {
+    const a = this.a;
+    if (a.length === 0) return null;
+    const top = a[0];
+    const last = a.pop();
+    if (a.length > 0) {
+      a[0] = last;
+      let i = 0;
+      while (true) {
+        const l = i * 2 + 1;
+        const r = l + 1;
+        let best = i;
+        if (l < a.length && this.cmp(a[l], a[best]) > 0) best = l;
+        if (r < a.length && this.cmp(a[r], a[best]) > 0) best = r;
+        if (best === i) break;
+        [a[i], a[best]] = [a[best], a[i]];
+        i = best;
+      }
+    }
+    return top;
+  }
+}
+
+function isEdgeCoord(x, y) {
+  return x === 0 || x === GRID_N || y === 0 || y === GRID_N;
+}
+
+function candidatePotential(g, edgeId) {
+  const len = g.edgeLength(edgeId);
+  return Math.max(0, len - 1);
+}
+
+function endpointVertexId(g, edgeId, end) {
+  const e = g.e(edgeId);
+  return (end === 'start') ? e.a : e.b;
+}
+function endpointCoords(g, edgeId, end) {
+  const vid = endpointVertexId(g, edgeId, end);
+  const v = g.v(vid);
+  return { x: v.x, y: v.y, vid };
+}
+
+/* ===== Reintroduced original perp-neighbor constraint (graph version) =====
+   Old meaning (bag-of-segments): find a perpendicular segment through the endpoint,
+   then count how many OTHER segment endpoints lie on that perpendicular segment.
+
+   Graph meaning: along the perpendicular wall chain through the endpoint,
+   check for other vertices that are endpoints of INTERNAL edges of the pushed orientation.
+   We intentionally do NOT count boundary-only structure as "segment endpoints".
+*/
+function isInternalVerticalEdge(g, edgeId) {
+  const e = g.e(edgeId);
+  return !!e && e.active && e.ori === 'v' && e.leftFace !== -1 && e.rightFace !== -1;
+}
+function isInternalHorizontalEdge(g, edgeId) {
+  const e = g.e(edgeId);
+  return !!e && e.active && e.ori === 'h' && e.topFace !== -1 && e.bottomFace !== -1;
+}
+
+function isInternalVerticalEndpointAtVertex(g, vid) {
+  const v = g.v(vid);
+  let cnt = 0;
+
+  if (v.up !== null) {
+    const eid = g.getEdgeBetween(vid, v.up);
+    if (eid !== null && isInternalVerticalEdge(g, eid)) cnt++;
+  }
+  if (v.down !== null) {
+    const eid = g.getEdgeBetween(vid, v.down);
+    if (eid !== null && isInternalVerticalEdge(g, eid)) cnt++;
+  }
+  return cnt === 1;
+}
+
+function isInternalHorizontalEndpointAtVertex(g, vid) {
+  const v = g.v(vid);
+  let cnt = 0;
+
+  if (v.left !== null) {
+    const eid = g.getEdgeBetween(vid, v.left);
+    if (eid !== null && isInternalHorizontalEdge(g, eid)) cnt++;
+  }
+  if (v.right !== null) {
+    const eid = g.getEdgeBetween(vid, v.right);
+    if (eid !== null && isInternalHorizontalEdge(g, eid)) cnt++;
+  }
+  return cnt === 1;
+}
+
+function hasOtherInternalVerticalEndpointOnHorizontalChain(g, vid) {
+  // walk left
+  let cur = g.v(vid).left;
+  while (cur !== null) {
+    if (isInternalVerticalEndpointAtVertex(g, cur)) return true;
+    cur = g.v(cur).left;
+  }
+  // walk right
+  cur = g.v(vid).right;
+  while (cur !== null) {
+    if (isInternalVerticalEndpointAtVertex(g, cur)) return true;
+    cur = g.v(cur).right;
+  }
+  return false;
+}
+
+function hasOtherInternalHorizontalEndpointOnVerticalChain(g, vid) {
+  // walk up
+  let cur = g.v(vid).up;
+  while (cur !== null) {
+    if (isInternalHorizontalEndpointAtVertex(g, cur)) return true;
+    cur = g.v(cur).up;
+  }
+  // walk down
+  cur = g.v(vid).down;
+  while (cur !== null) {
+    if (isInternalHorizontalEndpointAtVertex(g, cur)) return true;
+    cur = g.v(cur).down;
+  }
+  return false;
+}
+
+function countOtherInternalVerticalEndpointsOnHorizontalChain(g, vid) {
+  let count = 0;
+  let cur = g.v(vid).left;
+  while (cur !== null) {
+    if (isInternalVerticalEndpointAtVertex(g, cur)) count++;
+    cur = g.v(cur).left;
+  }
+  cur = g.v(vid).right;
+  while (cur !== null) {
+    if (isInternalVerticalEndpointAtVertex(g, cur)) count++;
+    cur = g.v(cur).right;
+  }
+  return count;
+}
+
+function countOtherInternalHorizontalEndpointsOnVerticalChain(g, vid) {
+  let count = 0;
+  let cur = g.v(vid).up;
+  while (cur !== null) {
+    if (isInternalHorizontalEndpointAtVertex(g, cur)) count++;
+    cur = g.v(cur).up;
+  }
+  cur = g.v(vid).down;
+  while (cur !== null) {
+    if (isInternalHorizontalEndpointAtVertex(g, cur)) count++;
+    cur = g.v(cur).down;
+  }
+  return count;
+}
+
+function isEndpointPushable(g, edgeId, end) {
+  const e = g.e(edgeId);
+  if (!e.active) return false;
+  if (g.isBoundaryEdge(edgeId)) return false;
+
+  // old algorithm: boundary endpoints are candidates immediately
+  const { x, y, vid } = endpointCoords(g, edgeId, end);
+  if (isEdgeCoord(x, y)) return true;
+
+  // old algorithm: length must be > 1
+  const pot = candidatePotential(g, edgeId);
+  if (pot <= 0) return false;
+
+  // old algorithm: perpNeighbors >= 1
+  if (e.ori === 'v') {
+    return hasOtherInternalVerticalEndpointOnHorizontalChain(g, vid);
+  } else {
+    return hasOtherInternalHorizontalEndpointOnVerticalChain(g, vid);
+  }
+}
+
+/* ===== Valid distance selection, unchanged ===== */
+function buildForbiddenListVertical(g, leftFaceId, rightFaceId, yMin, yMax) {
+  const forb = new Set();
+  const fL = g.f(leftFaceId);
+  const fR = g.f(rightFaceId);
+  for (const vid of fL.left) {
+    const y = g.v(vid).y;
+    if (y >= yMin && y <= yMax) forb.add(y);
+  }
+  for (const vid of fR.right) {
+    const y = g.v(vid).y;
+    if (y >= yMin && y <= yMax) forb.add(y);
+  }
+  const arr = Array.from(forb);
+  arr.sort((a, b) => a - b);
+  return arr;
+}
+
+function buildForbiddenListHorizontal(g, topFaceId, bottomFaceId, xMin, xMax) {
+  const forb = new Set();
+  const fT = g.f(topFaceId);
+  const fB = g.f(bottomFaceId);
+  for (const vid of fT.top) {
+    const x = g.v(vid).x;
+    if (x >= xMin && x <= xMax) forb.add(x);
+  }
+  for (const vid of fB.bottom) {
+    const x = g.v(vid).x;
+    if (x >= xMin && x <= xMax) forb.add(x);
+  }
+  const arr = Array.from(forb);
+  arr.sort((a, b) => a - b);
+  return arr;
+}
+
+function buildAllowedIntervals(minV, maxV, forbiddenSorted) {
+  const intervals = [];
+  let cur = minV;
+  for (const f of forbiddenSorted) {
+    if (f < cur) continue;
+    if (f > maxV) break;
+    if (f > cur) intervals.push([cur, f - 1]);
+    cur = f + 1;
+  }
+  if (cur <= maxV) intervals.push([cur, maxV]);
+  return intervals;
+}
+
+function intervalsCount(intervals) {
+  let total = 0;
+  for (const [a, b] of intervals) total += (b - a + 1);
+  return total;
+}
+
+function selectKthFromIntervals(intervals, k) {
+  for (const [a, b] of intervals) {
+    const len = b - a + 1;
+    if (k < len) return a + k;
+    k -= len;
+  }
+  return null;
+}
+
+function pickFirstValidFromIntervals(intervals, isBad) {
+  for (const [a, b] of intervals) {
+    for (let v = a; v <= b; v++) {
+      if (!isBad(v)) return v;
+    }
+  }
+  return null;
+}
+
+function pickLastValidFromIntervals(intervals, isBad) {
+  for (let i = intervals.length - 1; i >= 0; i--) {
+    const [a, b] = intervals[i];
+    for (let v = b; v >= a; v--) {
+      if (!isBad(v)) return v;
+    }
+  }
+  return null;
+}
+
+function chooseNewValForCandidate(g, edgeId, end, strategy, rng) {
+  const e = g.e(edgeId);
+  if (!e.active) return null;
+
+  if (e.ori === 'v') {
+    const a = g.v(e.a), b = g.v(e.b);
+    const yTop = Math.min(a.y, b.y);
+    const yBot = Math.max(a.y, b.y);
+
+    const yMin = yTop + 1;
+    const yMax = yBot - 1;
+    if (yMin > yMax) return null;
+
+    const fLid = e.leftFace;
+    const fRid = e.rightFace;
+    if (fLid === -1 || fRid === -1) return null;
+
+    const fL = g.f(fLid);
+    const fR = g.f(fRid);
+    if (!fL.active || !fR.active) return null;
+
+    if (end === 'start') {
+      if (fL.topY !== fR.topY) return null;
+    } else {
+      if (fL.bottomY !== fR.bottomY) return null;
+    }
+
+    const xL = fL.leftX;
+    const xR = fR.rightX;
+
+    const forbidden = buildForbiddenListVertical(g, fLid, fRid, yMin, yMax);
+    const intervals = buildAllowedIntervals(yMin, yMax, forbidden);
+    const total = intervalsCount(intervals);
+    if (total <= 0) return null;
+
+    const isBad = (y) => g.hasVertexAt(xL, y) || g.hasVertexAt(xR, y);
+
+    if (strategy === 'smallest') {
+      const y = (end === 'start') ? pickFirstValidFromIntervals(intervals, isBad)
+                                  : pickLastValidFromIntervals(intervals, isBad);
+      return y;
+    }
+    if (strategy === 'biggest') {
+      const y = (end === 'start') ? pickLastValidFromIntervals(intervals, isBad)
+                                  : pickFirstValidFromIntervals(intervals, isBad);
+      return y;
+    }
+    if (strategy === 'median') {
+      const mid = Math.floor((total - 1) / 2);
+      const idxAsc = (end === 'start') ? mid : (total - 1 - mid);
+      let y = selectKthFromIntervals(intervals, idxAsc);
+      if (y === null) return null;
+      if (isBad(y)) y = pickFirstValidFromIntervals(intervals, isBad);
+      return y;
+    }
+
+    for (let tries = 0; tries < 8; tries++) {
+      const r = Math.floor(rng() * total);
+      const y = selectKthFromIntervals(intervals, r);
+      if (y !== null && !isBad(y)) return y;
+    }
+    return pickFirstValidFromIntervals(intervals, isBad);
+  }
+
+  const a = g.v(e.a), b = g.v(e.b);
+  const xLeft = Math.min(a.x, b.x);
+  const xRight = Math.max(a.x, b.x);
+
+  const xMin = xLeft + 1;
+  const xMax = xRight - 1;
+  if (xMin > xMax) return null;
+
+  const fTid = e.topFace;
+  const fBid = e.bottomFace;
+  if (fTid === -1 || fBid === -1) return null;
+
+  const fT = g.f(fTid);
+  const fB = g.f(fBid);
+  if (!fT.active || !fB.active) return null;
+
+  if (end === 'start') {
+    if (fT.leftX !== fB.leftX) return null;
+  } else {
+    if (fT.rightX !== fB.rightX) return null;
+  }
+
+  const yT = fT.topY;
+  const yB = fB.bottomY;
+
+  const forbidden = buildForbiddenListHorizontal(g, fTid, fBid, xMin, xMax);
+  const intervals = buildAllowedIntervals(xMin, xMax, forbidden);
+  const total = intervalsCount(intervals);
+  if (total <= 0) return null;
+
+  const isBad = (x) => g.hasVertexAt(x, yT) || g.hasVertexAt(x, yB);
+
+  if (strategy === 'smallest') {
+    const x = (end === 'start') ? pickFirstValidFromIntervals(intervals, isBad)
+                                : pickLastValidFromIntervals(intervals, isBad);
+    return x;
+  }
+  if (strategy === 'biggest') {
+    const x = (end === 'start') ? pickLastValidFromIntervals(intervals, isBad)
+                                : pickFirstValidFromIntervals(intervals, isBad);
+    return x;
+  }
+  if (strategy === 'median') {
+    const mid = Math.floor((total - 1) / 2);
+    const idxAsc = (end === 'start') ? mid : (total - 1 - mid);
+    let x = selectKthFromIntervals(intervals, idxAsc);
+    if (x === null) return null;
+    if (isBad(x)) x = pickFirstValidFromIntervals(intervals, isBad);
+    return x;
+  }
+
+  for (let tries = 0; tries < 8; tries++) {
+    const r = Math.floor(rng() * total);
+    const x = selectKthFromIntervals(intervals, r);
+    if (x !== null && !isBad(x)) return x;
+  }
+  return pickFirstValidFromIntervals(intervals, isBad);
+}
+
+function canApplyPush(g, edgeId, end, newVal) {
+  const E = g.e(edgeId);
+  if (!E || !E.active) return false;
+  if (g.isBoundaryEdge(edgeId)) return false;
+  if (!Number.isInteger(newVal)) return false;
+
+  if (E.ori === 'v') {
+    const a = g.v(E.a), b = g.v(E.b);
+    const yTop = Math.min(a.y, b.y);
+    const yBot = Math.max(a.y, b.y);
+    if (!(newVal > yTop && newVal < yBot)) return false;
+
+    const fLid = E.leftFace, fRid = E.rightFace;
+    if (fLid === -1 || fRid === -1) return false;
+    const fL = g.f(fLid), fR = g.f(fRid);
+    if (!fL.active || !fR.active) return false;
+
+    if (end === 'start') { if (fL.topY !== fR.topY) return false; }
+    else { if (fL.bottomY !== fR.bottomY) return false; }
+
+    const xL = fL.leftX;
+    const xR = fR.rightX;
+    if (g.hasVertexAt(xL, newVal)) return false;
+    if (g.hasVertexAt(xR, newVal)) return false;
+    return true;
+  }
+
+  const a = g.v(E.a), b = g.v(E.b);
+  const xLeft = Math.min(a.x, b.x);
+  const xRight = Math.max(a.x, b.x);
+  if (!(newVal > xLeft && newVal < xRight)) return false;
+
+  const fTid = E.topFace, fBid = E.bottomFace;
+  if (fTid === -1 || fBid === -1) return false;
+  const fT = g.f(fTid), fB = g.f(fBid);
+  if (!fT.active || !fB.active) return false;
+
+  if (end === 'start') { if (fT.leftX !== fB.leftX) return false; }
+  else { if (fT.rightX !== fB.rightX) return false; }
+
+  const yT = fT.topY;
+  const yB = fB.bottomY;
+  if (g.hasVertexAt(newVal, yT)) return false;
+  if (g.hasVertexAt(newVal, yB)) return false;
+  return true;
+}
+
+/* =========================
+   App state
+========================= */
+let graph = null;
+let steps = [];
+let currentStepIndex = 0;
+let rand = null;
+let selected = null;
+
+/* =========================
+   Canvas
+========================= */
+const canvas = document.getElementById('mainCanvas');
+const ctx = canvas.getContext('2d');
+
+let cellSize = 0;
+let gridPixelSize = 0;
+let offsetX = 0;
+let offsetY = 0;
+
+function resize() {
+  const size = Math.min(window.innerWidth, window.innerHeight) - (PADDING * 2);
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  const scaleN = Math.max(1, Math.min(GRID_N, 2000));
+  gridPixelSize = Math.floor(size / scaleN) * scaleN;
+  cellSize = gridPixelSize / scaleN;
+  offsetX = Math.floor((canvas.width - gridPixelSize) / 2);
+  offsetY = Math.floor((canvas.height - gridPixelSize) / 2);
+
+  render();
+}
+window.addEventListener('resize', resize);
+
+function toPixels(x, y) {
+  const scaleN = Math.max(1, Math.min(GRID_N, 2000));
+  const sx = (x / GRID_N) * scaleN;
+  const sy = (y / GRID_N) * scaleN;
+  return { x: offsetX + (sx * cellSize), y: offsetY + (sy * cellSize) };
+}
+
+function clearSelection() {
+  selected = null;
+  document.getElementById('inspector-panel').style.display = 'none';
+  document.getElementById('inspector-actions').style.display = 'none';
+}
+
+/* =========================
+   Generator
+========================= */
+function initGenerator() {
+  clearSelection();
+
+  const seedStr = document.getElementById('seedInput').value.toString();
+  let sizeVal = parseInt(document.getElementById('sizeInput').value, 10);
+  if (sizeVal < 6) { sizeVal = 6; document.getElementById('sizeInput').value = 6; }
+  if (sizeVal > 100000) { sizeVal = 100000; document.getElementById('sizeInput').value = 100000; }
+  GRID_N = sizeVal;
+
+  resize();
+
+  const seedFunc = xmur3(seedStr);
+  rand = mulberry32(seedFunc());
+
+  steps = [];
+  const sim = new Graph(GRID_N);
+  sim.initBoundary();
+
+  const w = rand() > 0.5 ? 2 : 1;
+  const h = rand() > 0.5 ? 2 : 1;
+
+  const xRange = GRID_N - w - 2;
+  const yRange = GRID_N - h - 2;
+  const ix = Math.floor(rand() * (xRange + 1)) + 1;
+  const iy = Math.floor(rand() * (yRange + 1)) + 1;
+
+  const rx = ix + w;
+  const by = iy + h;
+  const lx = ix;
+  const ty = iy;
+
+  steps.push({ type: 'init', desc: `Init: split outer face at X=${rx}`, rx });
+
+  const initRes = sim.splitFace(0, 'v', rx);
+  const initEdgeId = initRes.cutEdgeId;
+
+  // Swirl step 1
+  sim.applyPush(initEdgeId, 'start', ty, false);
+  steps.push({ type: 'push', desc: `Swirl: Push Vert start to Y=${ty}`, edgeId: initEdgeId, end: 'start', value: ty });
+
+  // Swirl step 2: push horizontal edge (0,ty)-(rx,ty)
+  const v0 = sim.vertexIdAt(0, ty);
+  const vP = sim.vertexIdAt(rx, ty);
+  if (v0 === null || vP === null) throw new Error("Swirl: missing vertices on (0,ty) or (rx,ty)");
+  const eLeftH = sim.getEdgeBetween(v0, vP);
+  if (eLeftH === null) throw new Error("Swirl: missing horizontal edge (0,ty)-(rx,ty)");
+  sim.applyPush(eLeftH, 'start', lx, false);
+  steps.push({ type: 'push', desc: `Swirl: Push Horz start to X=${lx}`, edgeId: eLeftH, end: 'start', value: lx });
+
+  // Swirl step 3: push vertical edge at x=lx, from (lx,ty) to (lx,N)
+  const vTop = sim.vertexIdAt(lx, ty);
+  const vBot = sim.vertexIdAt(lx, GRID_N);
+  if (vTop === null || vBot === null) throw new Error("Swirl: missing vertices for vertical at x=lx");
+  const eVB = sim.getEdgeBetween(vTop, vBot);
+  if (eVB === null) throw new Error("Swirl: missing vertical edge at x=lx");
+  sim.applyPush(eVB, 'end', by, false);
+  steps.push({ type: 'push', desc: `Swirl: Push Vert end to Y=${by}`, edgeId: eVB, end: 'end', value: by });
+
+  runAutoGeneration(sim);
+
+  currentStepIndex = 0;
+  document.getElementById('timelineSlider').max = steps.length - 1;
+  document.getElementById('timelineSlider').value = 0;
+
+  executeStepsTo(0);
+  updateUI();
+}
+
+function runAutoGeneration(sim) {
+  const strategy = document.getElementById('hopStrategyInput').value;
+  const prioritizePotential = document.getElementById('prioritizePotentialInput').checked;
+
+  const heap = new MaxHeap((a, b) => {
+    if (a.potential !== b.potential) return a.potential - b.potential;
+    return a.tie - b.tie;
+  });
+  const bag = [];
+
+  function enqueue(edgeId, end) {
+    if (!sim.e(edgeId).active) return;
+    if (sim.isBoundaryEdge(edgeId)) return;
+    const pot = candidatePotential(sim, edgeId);
+    if (pot <= 0) return;
+    const entry = { edgeId, end, potential: pot, tie: rand() };
+    if (prioritizePotential) heap.push(entry);
+    else bag.push(entry);
+  }
+
+  for (let i = 0; i < sim.edges.length; i++) {
+    const e = sim.edges[i];
+    if (!e.active) continue;
+    if (sim.isBoundaryEdge(i)) continue;
+    enqueue(i, 'start');
+    enqueue(i, 'end');
+  }
+
+  let attempts = 0;
+  while (attempts < MAX_ATTEMPTS) {
+    attempts++;
+
+    let cand = null;
+
+    if (prioritizePotential) {
+      while (heap.size() > 0) {
+        const it = heap.pop();
+        if (!sim.e(it.edgeId).active) continue;
+        if (sim.isBoundaryEdge(it.edgeId)) continue;
+        const potNow = candidatePotential(sim, it.edgeId);
+        if (potNow <= 0) continue;
+        it.potential = potNow;
+        cand = it;
+        break;
+      }
+      if (!cand) break;
+    } else {
+      while (bag.length > 0) {
+        const idx = Math.floor(rand() * bag.length);
+        const it = bag[idx];
+        bag[idx] = bag[bag.length - 1];
+        bag.pop();
+
+        if (!sim.e(it.edgeId).active) continue;
+        if (sim.isBoundaryEdge(it.edgeId)) continue;
+        const potNow = candidatePotential(sim, it.edgeId);
+        if (potNow <= 0) continue;
+        it.potential = potNow;
+        cand = it;
+        break;
+      }
+      if (!cand) break;
+    }
+
+    // Candidacy check includes restored perp-neighbor constraint
+    if (!isEndpointPushable(sim, cand.edgeId, cand.end)) continue;
+
+    const newVal = chooseNewValForCandidate(sim, cand.edgeId, cand.end, strategy, rand);
+    if (newVal === null) continue;
+    if (!canApplyPush(sim, cand.edgeId, cand.end, newVal)) continue;
+
+    try {
+      const coords = sim.edgeCoords(cand.edgeId);
+      const dirLabel = (coords.orientation === 'v')
+        ? (cand.end === 'start' ? 'Vert start' : 'Vert end')
+        : (cand.end === 'start' ? 'Horz start' : 'Horz end');
+
+      const res = sim.applyPush(cand.edgeId, cand.end, newVal, false);
+
+      steps.push({
+        type: 'push',
+        desc: `Push ${dirLabel} to ${coords.orientation === 'v' ? 'Y' : 'X'}=${newVal}`,
+        edgeId: cand.edgeId,
+        end: cand.end,
+        value: newVal
+      });
+
+      for (const eid of res.createdEdgeIds) {
+        enqueue(eid, 'start');
+        enqueue(eid, 'end');
+      }
+      enqueue(cand.edgeId, 'start');
+      enqueue(cand.edgeId, 'end');
+    } catch (err) {
+      // do not record failures
+    }
+  }
+}
+
+/* =========================
+   Replay
+========================= */
+function executeStepsTo(targetIdx) {
+  graph = new Graph(GRID_N);
+  graph.initBoundary();
+
+  for (let i = 0; i <= targetIdx; i++) {
+    const s = steps[i];
+    if (!s) continue;
+
+    if (s.type === 'init') {
+      graph.splitFace(0, 'v', s.rx);
+    } else if (s.type === 'push') {
+      graph.applyPush(s.edgeId, s.end, s.value, false);
+    }
+  }
+  render();
+}
+
+/* =========================
+   UI timeline
+========================= */
+function updateUI() {
+  document.getElementById('stepDisplay').innerText = `${currentStepIndex} / ${steps.length - 1}`;
+  document.getElementById('instructionDisplay').innerText = steps[currentStepIndex]?.desc ?? '';
+  document.getElementById('btnPrev').disabled = currentStepIndex === 0;
+  document.getElementById('btnNext').disabled = currentStepIndex === steps.length - 1;
+}
+
+function step(dir) { scrub(currentStepIndex + dir); }
+
+function scrub(val) {
+  let next = parseInt(val, 10);
+  if (next < 0) next = 0;
+  if (next >= steps.length) next = steps.length - 1;
+
+  currentStepIndex = next;
+  document.getElementById('timelineSlider').value = next;
+
+  clearSelection();
+  executeStepsTo(currentStepIndex);
+  updateUI();
+}
+
+function randomizeSeed() {
+  const newSeed = Math.floor(Math.random() * 999999);
+  document.getElementById('seedInput').value = newSeed;
+  initGenerator();
+}
+
+/* =========================
+   Selection + inspector
+========================= */
+function getGridCoords(evt) {
+  const rect = canvas.getBoundingClientRect();
+  const mouseX = evt.clientX - rect.left - offsetX;
+  const mouseY = evt.clientY - rect.top - offsetY;
+  const scaleN = Math.max(1, Math.min(GRID_N, 2000));
+  const gx = (mouseX / cellSize) * (GRID_N / scaleN);
+  const gy = (mouseY / cellSize) * (GRID_N / scaleN);
+  return { x: gx, y: gy };
+}
+
+canvas.addEventListener('mousedown', (e) => {
+  if (!graph) return;
+  const pos = getGridCoords(e);
+
+  const threshold = 0.45;
+  let best = threshold;
+  let match = null;
+
+  for (let i = 0; i < graph.edges.length; i++) {
+    const ed = graph.edges[i];
+    if (!ed.active) continue;
+    if (graph.isBoundaryEdge(i)) continue;
+
+    const c = graph.edgeCoords(i);
+    const d1 = Math.hypot(pos.x - c.x1, pos.y - c.y1);
+    if (d1 < best) { best = d1; match = { edgeId: i, end: 'start', x: c.x1, y: c.y1 }; }
+
+    const d2 = Math.hypot(pos.x - c.x2, pos.y - c.y2);
+    if (d2 < best) { best = d2; match = { edgeId: i, end: 'end', x: c.x2, y: c.y2 }; }
+  }
+
+  if (match) {
+    selected = match;
+    updateInspector();
+    render();
+  } else {
+    clearSelection();
+    render();
+  }
+});
+
+function updateInspector() {
+  if (!selected || !graph) return;
+
+  const e = graph.e(selected.edgeId);
+  const pot = candidatePotential(graph, selected.edgeId);
+  const pushable = isEndpointPushable(graph, selected.edgeId, selected.end);
+  const { vid } = endpointCoords(graph, selected.edgeId, selected.end);
+  const deg = graph.v(vid).degree();
+  const edgeLen = graph.edgeLength(selected.edgeId);
+
+  const perpCount = (e.ori === 'v')
+    ? countOtherInternalVerticalEndpointsOnHorizontalChain(graph, vid)
+    : countOtherInternalHorizontalEndpointsOnVerticalChain(graph, vid);
+
+  const strategy = document.getElementById('hopStrategyInput').value;
+  const preview = (pushable ? chooseNewValForCandidate(graph, selected.edgeId, selected.end, strategy, () => 0.5) : null);
+
+  const panel = document.getElementById('inspector-panel');
+  panel.style.display = 'block';
+
+  const content = document.getElementById('inspector-content');
+  content.innerHTML = `
+    <div class="data-row"><span class="data-label">Endpoint</span> <span class="data-val">${selected.end.toUpperCase()}</span></div>
+    <div class="data-row"><span class="data-label">Coords</span> <span class="data-val">(${selected.x}, ${selected.y})</span></div>
+    <div class="data-row"><span class="data-label">Ori</span> <span class="data-val">${e.ori === 'v' ? 'VERT' : 'HORZ'}</span></div>
+    <div class="data-row"><span class="data-label">Edge Len</span> <span class="data-val">${edgeLen}</span></div>
+    <div class="data-row"><span class="data-label">Degree</span> <span class="data-val">${deg}</span></div>
+    <div class="data-row"><span class="data-label">Perp Neighbors</span> <span class="data-val" style="color:${perpCount > 0 ? '#fff' : '#777'}">${perpCount}</span></div>
+    <div class="data-row"><span class="data-label">Potential</span> <span class="data-val" style="color:#4ec9b0">${pot}</span></div>
+    <div class="data-row"><span class="data-label">Status</span> <span class="data-val" style="color:${pushable ? '#7f7' : '#f77'}">${pushable ? 'PUSHABLE' : 'LOCKED'}</span></div>
+    <div class="data-row"><span class="data-label">Preview</span> <span class="data-val" style="color:#4ec9b0">${preview === null ? '-' : (e.ori === 'v' ? ('Y=' + preview) : ('X=' + preview))}</span></div>
+  `;
+  document.getElementById('inspector-actions').style.display = 'flex';
+}
+
+function manualPush() {
+  if (!selected || !graph) return;
+  const strategy = document.getElementById('hopStrategyInput').value;
+
+  if (!isEndpointPushable(graph, selected.edgeId, selected.end)) {
+    alert("Locked");
+    return;
+  }
+
+  const newVal = chooseNewValForCandidate(graph, selected.edgeId, selected.end, strategy, Math.random);
+  if (newVal === null) {
+    alert("No valid moves");
+    return;
+  }
+  if (!canApplyPush(graph, selected.edgeId, selected.end, newVal)) {
+    alert("Move rejected by validity rules");
+    return;
+  }
+
+  steps = steps.slice(0, currentStepIndex + 1);
+  steps.push({
+    type: 'push',
+    desc: `Manual push edge ${selected.edgeId} ${selected.end} to ${graph.e(selected.edgeId).ori === 'v' ? 'Y' : 'X'}=${newVal}`,
+    edgeId: selected.edgeId,
+    end: selected.end,
+    value: newVal
+  });
+
+  document.getElementById('timelineSlider').max = steps.length - 1;
+  step(1);
+}
+
+window.addEventListener('keydown', (e) => {
+  if (e.key === "ArrowRight") step(1);
+  if (e.key === "ArrowLeft") step(-1);
+  if (e.key === "r" || e.key === "R") randomizeSeed();
+});
+
+/* =========================
+   Render
+========================= */
+function drawVertex(px, py, color, r = 5) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.arc(px, py, r, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function render() {
+  ctx.fillStyle = '#1a1a1a';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.fillStyle = '#000';
+  ctx.fillRect(offsetX, offsetY, gridPixelSize, gridPixelSize);
+
+  const scaleN = Math.max(1, Math.min(GRID_N, 2000));
+  if (scaleN <= 200) {
+    ctx.strokeStyle = '#222';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let i = 1; i < scaleN; i++) {
+      const p = i * cellSize;
+      ctx.moveTo(offsetX + p, offsetY);
+      ctx.lineTo(offsetX + p, offsetY + gridPixelSize);
+      ctx.moveTo(offsetX, offsetY + p);
+      ctx.lineTo(offsetX + gridPixelSize, offsetY + p);
+    }
+    ctx.stroke();
+  }
+
+  if (!graph) return;
+
+  ctx.strokeStyle = '#ff3333';
+  ctx.lineWidth = 4;
+  ctx.lineCap = 'butt';
+
+  for (let i = 0; i < graph.edges.length; i++) {
+    const e = graph.edges[i];
+    if (!e.active) continue;
+    const a = graph.v(e.a);
+    const b = graph.v(e.b);
+    const p1 = toPixels(a.x, a.y);
+    const p2 = toPixels(b.x, b.y);
+    ctx.beginPath();
+    ctx.moveTo(p1.x, p1.y);
+    ctx.lineTo(p2.x, p2.y);
+    ctx.stroke();
+  }
+
+  if (selected) {
+    const p = toPixels(selected.x, selected.y);
+    ctx.strokeStyle = '#00ffff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 12, 0, Math.PI * 2);
+    ctx.stroke();
+    drawVertex(p.x, p.y, '#00ffff', 6);
+
+    const c = graph.edgeCoords(selected.edgeId);
+    const p1 = toPixels(c.x1, c.y1);
+    const p2 = toPixels(c.x2, c.y2);
+    ctx.strokeStyle = '#77ff77';
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.moveTo(p1.x, p1.y);
+    ctx.lineTo(p2.x, p2.y);
+    ctx.stroke();
+  }
+}
+
+/* =========================
+   Boot
+========================= */
+resize();
+initGenerator();
+</script>
+
+</body>
+</html>
