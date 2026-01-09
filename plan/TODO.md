@@ -1,0 +1,2 @@
+* ensure generator does not swallow errors anymore
+* Your demo stores step history using internal edge ids. That is not stable if you refactor anything. Your public API must not expose edge ids. Use coordinate-addressed edges in logs.
