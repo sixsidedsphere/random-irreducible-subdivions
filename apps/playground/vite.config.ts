@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 
 const normalizeBasePath = (basePath: string | undefined): string => {
   if (!basePath) {
@@ -9,6 +9,9 @@ const normalizeBasePath = (basePath: string | undefined): string => {
   return withLeadingSlash.endsWith("/") ? withLeadingSlash : `${withLeadingSlash}/`;
 };
 
-const base = normalizeBasePath(process.env.PUBLIC_BASE_PATH);
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, ".", "");
+  const base = normalizeBasePath(env.PUBLIC_BASE_PATH);
 
-export default defineConfig({ base });
+  return { base };
+});

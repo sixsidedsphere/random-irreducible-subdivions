@@ -3,12 +3,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "npm run build:local",
+    "build": "pnpm run build:local",
     "dev": "vite",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext .ts",
     "build:local": "PUBLIC_BASE_PATH=/ vite build",
-    "build:pages": "vite build"
+    "build:pages": "PUBLIC_BASE_PATH=${PUBLIC_BASE_PATH:-/random-irreducible-subdivions/playground/} vite build"
   },
   "dependencies": {
     "push-heal-rectangulation": "workspace:*"
