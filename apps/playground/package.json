@@ -3,10 +3,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "vite build",
+    "build": "npm run build:local",
     "dev": "vite",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src --ext .ts"
+    "lint": "eslint src --ext .ts",
+    "build:local": "PUBLIC_BASE_PATH=/ vite build",
+    "build:pages": "vite build"
   },
   "dependencies": {
     "push-heal-rectangulation": "workspace:*"
