@@ -39,13 +39,20 @@ jobs:
       - name: Build playground for GitHub Pages
         run: pnpm build:playground:pages
 
+      - name: Assemble Pages site
+        run: |
+          rm -rf site
+          mkdir -p site/playground
+          cp pages/index.html site/index.html
+          cp -R apps/playground/dist/. site/playground/
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: apps/playground/dist
+          path: site
 
       - name: Deploy to GitHub Pages
         id: deployment

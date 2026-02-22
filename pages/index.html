@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Push-Heal Rectangulation</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+      }
+      body {
+        margin: 0;
+        font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        line-height: 1.6;
+        background: #0b1020;
+        color: #e5e7eb;
+      }
+      main {
+        max-width: 860px;
+        margin: 0 auto;
+        padding: 2.5rem 1.25rem 3rem;
+      }
+      h1,
+      h2 {
+        line-height: 1.25;
+      }
+      .card {
+        margin: 1rem 0 2rem;
+        padding: 1rem 1.25rem;
+        border: 1px solid #374151;
+        border-radius: 12px;
+        background: #111827;
+      }
+      .button {
+        display: inline-block;
+        margin-top: 0.5rem;
+        background: #3b82f6;
+        color: white;
+        text-decoration: none;
+        padding: 0.55rem 0.9rem;
+        border-radius: 10px;
+        font-weight: 600;
+      }
+      code {
+        background: #1f2937;
+        padding: 0.1rem 0.3rem;
+        border-radius: 5px;
+      }
+      pre {
+        overflow-x: auto;
+        background: #111827;
+        border: 1px solid #374151;
+        border-radius: 12px;
+        padding: 0.8rem;
+      }
+      a {
+        color: #93c5fd;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Push-Heal Rectangulation</h1>
+      <p>
+        Deterministic rectangulation generator for an integer grid. It subdivides
+        <code>[0..N] x [0..N]</code> into axis-aligned rectangles using a local
+        push-heal operation.
+      </p>
+
+      <div class="card">
+        <h2>Playground</h2>
+        <p>Try it live in the browser.</p>
+        <a class="button" href="./playground/">Open Playground</a>
+      </div>
+
+      <h2>Contract</h2>
+      <ul>
+        <li>Integer coordinates only.</li>
+        <li>Bounding square is <code>(0,0)</code> to <code>(N,N)</code>.</li>
+        <li>All edges are axis-aligned.</li>
+        <li>Rectangles fully tile the square with no overlap.</li>
+      </ul>
+
+      <p>
+        Deterministic behavior: same version + same options + same seed = same
+        output.
+      </p>
+
+      <h2>Install</h2>
+      <pre><code>npm i push-heal-rectangulation</code></pre>
+
+      <h2>Quickstart</h2>
+      <pre><code>import { createGenerator } from "push-heal-rectangulation";
+
+const gen = createGenerator({
+  size: 60,
+  seed: "12345",
+  bootstrapRect: { width: 2, height: 2 },
+  hopStrategy: "random",
+  prioritizePotential: false,
+  includeSegments: true,
+  recordSteps: false,
+});
+
+const out = gen.run();
+for (const r of out.rects) {
+  // primary output
+}</code></pre>
+
+    </main>
+  </body>
+</html>
