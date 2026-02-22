@@ -1,0 +1,7 @@
+{
+  "name": "@push-heal/docs",
+  "private": true,
+  "scripts": {
+    "build": "echo docs"
+  }
+}
