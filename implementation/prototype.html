@@ -166,13 +166,13 @@
             <option value="random">Random</option>
             <option value="smallest">Smallest Hop</option>
             <option value="median">Median Hop</option>
-            <option value="biggest">Biggest Hop</option>
+            <option value="biggest" selected>Biggest Hop</option>
           </select>
         </div>
       </div>
 
       <div class="control-row" style="justify-content: flex-start; margin-top: 10px;">
-        <input type="checkbox" id="prioritizePotentialInput" onchange="initGenerator()">
+        <input type="checkbox" id="prioritizePotentialInput" checked onchange="initGenerator()">
         <label for="prioritizePotentialInput" title="Prioritize endpoints with the most physical space to push">Prioritize Max Potential</label>
       </div>
 
