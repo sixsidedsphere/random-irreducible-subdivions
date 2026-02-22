@@ -1,30 +1,54 @@
-# random-irreducible-subdivions
+# Push-Heal Rectangulation
 
-Prompted by:
-https://www.boristhebrave.com/2025/05/03/exploring-rectangle-subdivisions/#f0f71769-4ba9-4ad3-8a31-6a2e2d350582-link
+Deterministic rectangulation generator for an integer grid.
 
-An attempt to create a random algorithm that constructs an NxN grid of entirely irreduceble rectangles.
+It produces a subdivision of the square `[0..N] x [0..N]` into axis-aligned rectangles using a local operation called push-heal. The primary output is rectangles. Segments are optional secondary output for edge rendering.
 
-From the acticle
+This library is headless:
+- No DOM
+- No Canvas
+- No engine dependencies
 
-> I define a rectangular subdivision as reducible if there is a strict subset of at least two rectangles that has a rectangular boundary. I.e. a subdivision is reducible if you can swap out a subset of rectangles for a single larger rectangle and get a simpler rectangular subdivision.
+You render or consume the geometry however you want.
 
-Algorithm looks like this at the moment (not perfect by any means)
+## Contract
 
-- create an NxN integral grid
-- draw a "whirl" pattern anywhere on the grid
-- An edge can be pushed in if:
-    - it has length > 1
-    - the distance from the edge vertex to the next vertex on the line is > 1
-    - the perpendicular bisector created at the target spot would not collide with an already existing vertex
-    - there is at least one "neighbor" to the target vertex on its perpendicular bisector that is not the start or end vertex of that line. (aka, at least 1 more line terminates on the perpendicular bisector)
-- Iteratively pick an edge and "push" it in, creating a perpendicular bisector along the now dangling vertex. There is an option to optimise for potential, meaning "pick the longest line to push in".
-- we allow four distinct strategies for picking the distance a line can be pushed in.
-    -  "random" takes a random distance
-    -  "shortest" takes the smallest possible step (this tends to create very "stripy" results
-    -  "longest" takes the longest possible step (this is less stripy, but does tend to create very large gaps)
-    -  "median" takes the middle option, optimising for a more evenly spaced final result.
- 
-## Preview
+Hard constraints:
+- Integer coordinates only.
+- Bounding region is the square from `(0,0)` to `(N,N)`.
+- All edges are axis-aligned.
+- Output rectangles cover the full bounding square with no overlap.
 
-<img src="Screenshot 2026-01-08 at 16.59.45.png"/>
+Determinism:
+- Same version + same options + same seed produce identical output.
+
+## Install
+
+```bash
+npm i push-heal-rectangulation
+```
+
+## Quickstart
+
+```ts
+import { createGenerator } from "push-heal-rectangulation";
+
+const gen = createGenerator({
+  size: 60,
+  seed: "12345",
+  bootstrapRect: { width: 2, height: 2 },
+  hopStrategy: "random",
+  prioritizePotential: false,
+  includeSegments: true,
+  recordSteps: false,
+});
+
+const out = gen.run();
+for (const r of out.rects) {
+  // primary output
+}
+```
+
+## License
+
+MIT
