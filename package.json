@@ -5,7 +5,8 @@
   "scripts": {
     "build": "pnpm -r --if-present build",
     "typecheck": "pnpm -r --if-present typecheck",
-    "lint": "pnpm -r --if-present lint"
+    "lint": "pnpm -r --if-present lint",
+    "build:playground:pages": "pnpm --filter @push-heal/playground build:pages"
   },
   "devDependencies": {
     "typescript": "^5.7.0",
