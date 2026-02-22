@@ -1,8 +1,91 @@
 <!doctype html>
-<html>
-  <head><meta charset="UTF-8" /><title>Push-Heal Playground</title></head>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Push-Heal Playground</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; }
+      body {
+        font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #0b1020;
+        color: #e5e7eb;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 1.5rem 1rem;
+        min-height: 100vh;
+      }
+      h1 { font-size: 1.4rem; margin-bottom: 0.25rem; }
+      .subtitle { color: #9ca3af; font-size: 0.9rem; margin-bottom: 1rem; }
+      #controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        align-items: end;
+        margin-bottom: 1rem;
+      }
+      .field { display: flex; flex-direction: column; gap: 0.2rem; }
+      .field label { font-size: 0.75rem; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.05em; }
+      .field input, .field select {
+        background: #1f2937;
+        border: 1px solid #374151;
+        border-radius: 6px;
+        color: #e5e7eb;
+        padding: 0.4rem 0.5rem;
+        font-size: 0.85rem;
+        width: 120px;
+      }
+      .field input[type="range"] { width: 140px; padding: 0; }
+      button#generate {
+        background: #3b82f6;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 0.5rem 1rem;
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      button#generate:hover { background: #2563eb; }
+      canvas {
+        border: 1px solid #374151;
+        border-radius: 8px;
+        background: #111827;
+      }
+      .back-link { margin-top: 1rem; font-size: 0.85rem; }
+      .back-link a { color: #93c5fd; }
+    </style>
+  </head>
   <body>
+    <h1>Push-Heal Playground</h1>
+    <p class="subtitle">Interactive rectangulation generator</p>
+
+    <div id="controls">
+      <div class="field">
+        <label for="size">Size (<span id="sizeVal">32</span>)</label>
+        <input type="range" id="size" min="4" max="80" value="32" />
+      </div>
+      <div class="field">
+        <label for="seed">Seed</label>
+        <input type="text" id="seed" value="demo" />
+      </div>
+      <div class="field">
+        <label for="strategy">Hop Strategy</label>
+        <select id="strategy">
+          <option value="random" selected>random</option>
+          <option value="smallest">smallest</option>
+          <option value="median">median</option>
+          <option value="biggest">biggest</option>
+        </select>
+      </div>
+      <button id="generate">Generate</button>
+    </div>
+
     <canvas id="view" width="640" height="640"></canvas>
+
+    <p class="back-link"><a href="../">&larr; Back to landing page</a></p>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

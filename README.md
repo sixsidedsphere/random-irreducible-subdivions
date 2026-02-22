@@ -13,13 +13,11 @@ You render or consume the geometry however you want.
 
 ## Playground
 
-- **GitHub Pages landing page:** `https://<your-user>.github.io/random-irreducible-subdivions/`
-- **Direct playground URL:** `https://<your-user>.github.io/random-irreducible-subdivions/playground/index.html`
-
-> Tip: replace `<your-user>` with your GitHub username or org name.
+- **GitHub Pages landing page:** https://sixsidedsphere.github.io/random-irreducible-subdivions/
+- **Direct playground URL:** https://sixsidedsphere.github.io/random-irreducible-subdivions/playground/
 
 The playground is built and deployed to GitHub Pages on every push to `main` via
-`.github/workflows/deploy-pages.yml`.
+`.github/workflows/playground-pages.yml`.
 
 To verify the pages build locally:
 
