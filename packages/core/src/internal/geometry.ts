@@ -1,26 +1,28 @@
-import type { GenerationSnapshot, Rect, Segment } from "../public/types";
-import type { InternalModel } from "./model";
+import type { GenerationSnapshot, Rect, Segment, StepLog } from "../public/types";
+import type { Graph } from "./graph";
 
-export function modelToRects(model: InternalModel): Rect[] {
-  return model.faces
+export function graphToRects(graph: Graph): Rect[] {
+  return graph.faces
     .filter((f) => f.active)
     .map((f) => ({ left: f.leftX, top: f.topY, right: f.rightX, bottom: f.bottomY }));
 }
 
-export function modelToBoundarySegments(size: number): Segment[] {
-  return [
-    { x1: 0, y1: 0, x2: size, y2: 0, orientation: "h" },
-    { x1: size, y1: 0, x2: size, y2: size, orientation: "v" },
-    { x1: 0, y1: size, x2: size, y2: size, orientation: "h" },
-    { x1: 0, y1: 0, x2: 0, y2: size, orientation: "v" },
-  ];
+export function graphToSegments(graph: Graph): Segment[] {
+  return graph.edges
+    .filter((e) => e.active)
+    .map((e) => {
+      const a = graph.v(e.a), b = graph.v(e.b);
+      return { x1: a.x, y1: a.y, x2: b.x, y2: b.y, orientation: e.ori };
+    });
 }
 
-export function buildSnapshot(size: number, rects: Rect[], includeSegments: boolean, steps?: GenerationSnapshot["steps"]): GenerationSnapshot {
+export function buildSnapshot(
+  graph: Graph, includeSegments: boolean, steps?: StepLog[],
+): GenerationSnapshot {
   return {
-    size,
-    rects,
-    segments: includeSegments ? modelToBoundarySegments(size) : undefined,
+    size: graph.N,
+    rects: graphToRects(graph),
+    segments: includeSegments ? graphToSegments(graph) : undefined,
     steps,
   };
 }

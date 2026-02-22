@@ -3,28 +3,33 @@ export interface Vertex {
   x: number;
   y: number;
   active: boolean;
+  up: number | null;
+  down: number | null;
+  left: number | null;
+  right: number | null;
 }
 
 export interface Edge {
   id: number;
   a: number;
   b: number;
-  orientation: "h" | "v";
+  ori: "h" | "v";
   active: boolean;
+  topFace: number;
+  bottomFace: number;
+  leftFace: number;
+  rightFace: number;
 }
 
 export interface Face {
   id: number;
-  leftX: number;
-  topY: number;
-  rightX: number;
-  bottomY: number;
   active: boolean;
-}
-
-export interface InternalModel {
-  size: number;
-  faces: Face[];
-  edges: Edge[];
-  vertices: Vertex[];
+  leftX: number;
+  rightX: number;
+  topY: number;
+  bottomY: number;
+  top: number[];
+  bottom: number[];
+  left: number[];
+  right: number[];
 }
