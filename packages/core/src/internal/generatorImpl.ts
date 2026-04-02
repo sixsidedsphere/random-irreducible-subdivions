@@ -1,7 +1,9 @@
 import type {
+  ApplyPushFailureDiagnostic,
   GenerationSnapshot, NormalizedGeneratorOptions, RectangulationGenerator,
   StepDelta, StepLog, Endpoint, Rng,
 } from "../public/types";
+import { PushApplyError } from "../public/types";
 import { chooseBootstrapRect, applyBootstrapSwirl } from "./bootstrapSwirl";
 import { buildSnapshot } from "./geometry";
 import { Graph } from "./graph";
@@ -61,6 +63,8 @@ export class GeneratorImpl implements RectangulationGenerator {
   private heap: MaxHeap;
   private logs: StepLog[];
   private attempts: number;
+  private applyPushFailures: number;
+  private applyPushFailureEvents: ApplyPushFailureDiagnostic[];
   private done: boolean;
 
   constructor(options: NormalizedGeneratorOptions) {
@@ -68,6 +72,8 @@ export class GeneratorImpl implements RectangulationGenerator {
     this.rng = createRng(options.seed);
     this.logs = [];
     this.attempts = 0;
+    this.applyPushFailures = 0;
+    this.applyPushFailureEvents = [];
     this.done = false;
     this.bag = [];
     this.heap = new MaxHeap((a, b) => {
@@ -106,8 +112,19 @@ export class GeneratorImpl implements RectangulationGenerator {
     else this.bag.push(entry);
   }
 
+  private recordApplyPushFailure(
+    edgeId: number, endpoint: Endpoint, attemptedValue: number, reason: string,
+  ): ApplyPushFailureDiagnostic {
+    const event: ApplyPushFailureDiagnostic = { edgeId, endpoint, attemptedValue, reason };
+    this.applyPushFailures++;
+    this.applyPushFailureEvents.push(event);
+    return event;
+  }
+
   step(): StepDelta | null {
     if (this.done) return null;
+    const stepFailureStart = this.applyPushFailures;
+    const stepFailureEvents: ApplyPushFailureDiagnostic[] = [];
 
     while (this.attempts < this.options.maxAttempts) {
       this.attempts++;
@@ -175,9 +192,19 @@ export class GeneratorImpl implements RectangulationGenerator {
           removedRects: [],
           addedRects: [],
           log: this.options.recordSteps ? log : undefined,
+          diagnostics: stepFailureEvents.length > 0 ? {
+            applyPushFailures: this.applyPushFailures - stepFailureStart,
+            applyPushFailureEvents: stepFailureEvents,
+          } : undefined,
         };
       } catch (_e) {
-        // Failed push — continue to next candidate
+        const err = _e instanceof Error ? _e : new Error(String(_e));
+        const event = this.recordApplyPushFailure(cand.edgeId, cand.end, newVal, err.message);
+        stepFailureEvents.push(event);
+        if (this.options.strict) {
+          const message = `applyPush failed (edgeId=${cand.edgeId}, endpoint=${cand.end}, newVal=${newVal}): ${err.message}`;
+          throw new PushApplyError(message, err);
+        }
       }
     }
 
@@ -196,6 +223,10 @@ export class GeneratorImpl implements RectangulationGenerator {
     return buildSnapshot(
       this.graph,
       this.options.includeSegments,
+      {
+        applyPushFailures: this.applyPushFailures,
+        applyPushFailureEvents: [...this.applyPushFailureEvents],
+      },
       this.options.recordSteps ? [...this.logs] : undefined,
     );
   }
