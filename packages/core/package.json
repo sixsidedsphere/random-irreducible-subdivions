@@ -2,16 +2,22 @@
   "name": "push-heal-rectangulation",
   "version": "0.1.0",
   "type": "module",
-  "main": "./src/public/index.ts",
-  "types": "./src/public/index.ts",
+  "main": "./dist/public/index.js",
+  "types": "./dist/public/index.d.ts",
   "exports": {
     ".": {
-      "types": "./src/public/index.ts",
-      "default": "./src/public/index.ts"
+      "types": "./dist/public/index.d.ts",
+      "default": "./dist/public/index.js"
     }
   },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "prepublishOnly": "npm run build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src --ext .ts"
   }
