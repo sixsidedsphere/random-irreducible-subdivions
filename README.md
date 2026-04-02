@@ -35,6 +35,11 @@ Hard constraints:
 
 Determinism:
 - Same version + same options + same seed produce identical output.
+- This includes deterministic handling of failed internal `applyPush` attempts.
+
+Strict/non-strict push failure behavior:
+- `strict: true` (default): `run()` / `step()` throws `PushApplyError` when `applyPush` fails, with `edgeId`, `endpoint`, and attempted `newVal` in the error message.
+- `strict: false`: failed `applyPush` attempts are not thrown; they are recorded under `snapshot().diagnostics` (and `StepDelta.diagnostics` when a step eventually succeeds).
 
 ## Install
 

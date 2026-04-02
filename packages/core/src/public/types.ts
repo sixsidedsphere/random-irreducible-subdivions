@@ -56,6 +56,23 @@ export interface Rng {
 
 export type StepLog = BootstrapLog | PushLog;
 
+export interface ApplyPushFailureDiagnostic {
+  edgeId: number;
+  endpoint: Endpoint;
+  attemptedValue: Int;
+  reason: string;
+}
+
+export interface GenerationDiagnostics {
+  applyPushFailures: Int;
+  applyPushFailureEvents: ApplyPushFailureDiagnostic[];
+}
+
+export interface StepDiagnostics {
+  applyPushFailures: Int;
+  applyPushFailureEvents: ApplyPushFailureDiagnostic[];
+}
+
 export interface BootstrapLog {
   type: "bootstrap";
   rect: Rect;
@@ -76,6 +93,7 @@ export interface StepDelta {
   removedSegments?: Segment[];
   addedSegments?: Segment[];
   log?: StepLog;
+  diagnostics?: StepDiagnostics;
 }
 
 export interface GenerationSnapshot {
@@ -83,6 +101,7 @@ export interface GenerationSnapshot {
   rects: Rect[];
   segments?: Segment[];
   steps?: StepLog[];
+  diagnostics: GenerationDiagnostics;
 }
 
 export interface RectangulationGenerator {
@@ -98,4 +117,13 @@ export class InvalidOptionsError extends Error {
 
 export class InvariantViolationError extends Error {
   name = "InvariantViolationError";
+}
+
+export class PushApplyError extends Error {
+  name = "PushApplyError";
+  cause?: unknown;
+  constructor(message: string, cause?: unknown) {
+    super(message);
+    this.cause = cause;
+  }
 }

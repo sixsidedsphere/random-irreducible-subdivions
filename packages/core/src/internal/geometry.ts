@@ -1,4 +1,10 @@
-import type { GenerationSnapshot, Rect, Segment, StepLog } from "../public/types";
+import type {
+  GenerationDiagnostics,
+  GenerationSnapshot,
+  Rect,
+  Segment,
+  StepLog,
+} from "../public/types";
 import type { Graph } from "./graph";
 
 export function graphToRects(graph: Graph): Rect[] {
@@ -17,12 +23,13 @@ export function graphToSegments(graph: Graph): Segment[] {
 }
 
 export function buildSnapshot(
-  graph: Graph, includeSegments: boolean, steps?: StepLog[],
+  graph: Graph, includeSegments: boolean, diagnostics: GenerationDiagnostics, steps?: StepLog[],
 ): GenerationSnapshot {
   return {
     size: graph.N,
     rects: graphToRects(graph),
     segments: includeSegments ? graphToSegments(graph) : undefined,
     steps,
+    diagnostics,
   };
 }
